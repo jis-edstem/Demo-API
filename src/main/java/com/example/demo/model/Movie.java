@@ -3,6 +3,7 @@ package com.example.demo.model;
 import jakarta.persistence.*;
 
 import java.time.LocalDate;
+import java.util.List;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -29,4 +30,7 @@ public class Movie {
 	private String director;
 	private String releaseYear;
 	private LocalDate watchedAt;
+
+	@OneToMany(mappedBy = "movie", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+	private List<Rating> rating;
 }

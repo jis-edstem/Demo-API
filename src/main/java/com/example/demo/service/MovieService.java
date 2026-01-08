@@ -12,7 +12,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.util.Optional;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -23,23 +24,26 @@ public class MovieService {
 	private final RatingRepository ratingRepository;
 
 	@Transactional(readOnly = true)
-	public MovieResultsDto getMovieDetails(Integer movieCode) {
+	public MovieResultsDto getMovieDetails(Long movieCode) {
 		log.info("Getting movie details for movie with code: {}", movieCode);
-		if (!movieRepository.existsById(movieCode)) {
-			throw new MovieNotFound("Movie with the selected id not found");
-		}
-		Optional<Movie> movieResponse = movieRepository.findById(movieCode);
-		Optional<Rating> ratingResponse = ratingRepository.findById(movieCode);
+		
+		Movie movie = movieRepository.findByMovieCode(movieCode)
+				.orElseThrow(() -> new MovieNotFound("Movie with the selected code not found"));
+
+		List<Rating> ratings = ratingRepository.findByMovie_MovieCode(movieCode);
+
+		Rating firstRating = ratings.isEmpty() ? null : ratings.get(0);
 
 		return MovieResultsDto.builder()
-				.movieCode(movieResponse.get().getMovieCode())
-				.movieName(movieResponse.get().getMovieName())
-				.watchedAt(movieResponse.get().getWatchedAt())
-				.director(movieResponse.get().getDirector())
-				.rating(ratingResponse.get().getScore())
-				.ratedBy(ratingResponse.get().getReviewerName())
-				.ratedOn(ratingResponse.get().getRatedOn())
-				.comments(ratingResponse.get().getReviewText())
+				.id(movie.getId())
+				.movieCode(movie.getMovieCode())
+				.movieName(movie.getMovieName())
+				.watchedAt(movie.getWatchedAt())
+				.director(movie.getDirector())
+				.rating(firstRating != null ? firstRating.getScore() : null)
+				.ratedBy(firstRating != null ? firstRating.getReviewerName() : null)
+				.ratedOn(firstRating != null ? firstRating.getRatedOn() : null)
+				.comments(firstRating != null ? firstRating.getReviewText() : null)
 				.build();
 	}
 
@@ -47,34 +51,57 @@ public class MovieService {
 	public MovieResultsDto addMovieDetails(MovieResultsDto movieResultsDto) {
 		log.info("Adding movieDetails for movie: {}", movieResultsDto.getMovieName());
 
+		Movie movie = movieRepository.findByMovieCode(movieResultsDto.getMovieCode())
+				.orElseGet(() -> movieRepository.save(Movie.builder()
+						.movieCode(movieResultsDto.getMovieCode())
+						.movieName(movieResultsDto.getMovieName())
+						.director(movieResultsDto.getDirector())
+						.watchedAt(movieResultsDto.getWatchedAt())
+						.build()));
+
 		Rating rating = Rating.builder()
+				.movie(movie)
 				.reviewerName(movieResultsDto.getRatedBy())
 				.reviewText(movieResultsDto.getComments())
 				.score(movieResultsDto.getRating())
 				.ratedOn(Instant.now())
 				.build();
 
-		Rating savedRatings = ratingRepository.save(rating);
-
-		Movie movie = Movie.builder()
-				.movieCode(movieResultsDto.getMovieCode())
-				.movieName(movieResultsDto.getMovieName())
-				.director(movieResultsDto.getDirector())
-				.watchedAt(movieResultsDto.getWatchedAt())
-				.build();
-
-		Movie savedMovie = movieRepository.save(movie);
+		Rating savedRating = ratingRepository.save(rating);
 
 		return MovieResultsDto.builder()
-				.movieCode(savedMovie.getMovieCode())
-				.movieName(savedMovie.getMovieName())
-				.movieCode(savedMovie.getMovieCode())
-				.watchedAt(savedMovie.getWatchedAt())
-				.director(savedMovie.getDirector())
-				.rating(savedRatings.getScore())
-				.ratedBy(savedRatings.getReviewerName())
-				.ratedOn(savedRatings.getRatedOn())
-				.comments(savedRatings.getReviewText())
+				.id(movie.getId())
+				.movieCode(movie.getMovieCode())
+				.movieName(movie.getMovieName())
+				.watchedAt(movie.getWatchedAt())
+				.director(movie.getDirector())
+				.rating(savedRating.getScore())
+				.ratedBy(savedRating.getReviewerName())
+				.ratedOn(savedRating.getRatedOn())
+				.comments(savedRating.getReviewText())
 				.build();
+	}
+
+	@Transactional(readOnly = true)
+	public List<MovieResultsDto> getAllMovies() {
+		log.info("Fetching all movies");
+		return movieRepository.findAll().stream()
+				.map(movie -> {
+					List<Rating> ratings = movie.getRating();
+					Rating firstRating = (ratings != null && !ratings.isEmpty()) ? ratings.get(0) : null;
+
+					return MovieResultsDto.builder()
+							.id(movie.getId())
+							.movieCode(movie.getMovieCode())
+							.movieName(movie.getMovieName())
+							.watchedAt(movie.getWatchedAt())
+							.director(movie.getDirector())
+							.rating(firstRating != null ? firstRating.getScore() : null)
+							.ratedBy(firstRating != null ? firstRating.getReviewerName() : null)
+							.ratedOn(firstRating != null ? firstRating.getRatedOn() : null)
+							.comments(firstRating != null ? firstRating.getReviewText() : null)
+							.build();
+				})
+				.collect(Collectors.toList());
 	}
 }

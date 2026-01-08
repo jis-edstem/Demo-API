@@ -1,7 +1,6 @@
 package com.example.demo.controller;
 
 import com.example.demo.dto.MovieResultsDto;
-import com.example.demo.model.Movie;
 import com.example.demo.service.MovieService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -9,7 +8,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Optional;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/movies")
@@ -29,10 +28,17 @@ public class MovieController {
 
 	@GetMapping("/{movieCode}")
 	public ResponseEntity<MovieResultsDto> getMovieDetailsByCode(
-			@PathVariable Integer movieCode) {
+			@PathVariable Long movieCode) {
 		log.debug("Fetching movies with the movie code: {}", movieCode);
 		MovieResultsDto response = movieService.getMovieDetails(movieCode);
 		return new ResponseEntity<>(response, HttpStatus.OK);
+	}
+
+	@GetMapping
+	public ResponseEntity<List<MovieResultsDto>> getAllMovies() {
+		log.debug("Fetching all movies");
+		List<MovieResultsDto> result = movieService.getAllMovies();
+		return new ResponseEntity<>(result, HttpStatus.OK);
 	}
 
 }
